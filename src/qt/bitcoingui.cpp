@@ -66,7 +66,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent) :
     prevBlocks(0)
 {
     restoreWindowGeometry();
-    setWindowTitle(tr("Fastcoin") + " - " + tr("Wallet"));
+    setWindowTitle(tr("Fastcoin - Wallet ")+QString::fromStdString(CLIENT_BUILD));
 #ifndef Q_OS_MAC
     QApplication::setWindowIcon(QIcon(":icons/bitcoin"));
     setWindowIcon(QIcon(":icons/bitcoin"));
@@ -87,6 +87,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent) :
 
     // Create application menu bar
     createMenuBar();
+    menuBar()->setNativeMenuBar(false);// menubar on form instead
 
     // Create the toolbars
     createToolBars();
@@ -324,7 +325,7 @@ void BitcoinGUI::setClientModel(ClientModel *clientModel)
 
         // Create system tray menu (or setup the dock menu) that late to prevent users from calling actions,
         // while the client has not yet fully loaded
-        createTrayIconMenu();
+//        createTrayIconMenu();
 
         // Keep up to date with client
         setNumConnections(clientModel->getNumConnections());
@@ -374,17 +375,44 @@ void BitcoinGUI::setWalletActionsEnabled(bool enabled)
 
 void BitcoinGUI::createTrayIcon()
 {
+    QMenu *trayIconMenu;
 #ifndef Q_OS_MAC
     trayIcon = new QSystemTrayIcon(this);
-
+    trayIconMenu = new QMenu(this);
+    trayIcon->setContextMenu(trayIconMenu);
     trayIcon->setToolTip(tr("Fastcoin client"));
     trayIcon->setIcon(QIcon(":/icons/toolbar"));
+    connect(trayIcon, SIGNAL(activated(QSystemTrayIcon::ActivationReason)),
+            this, SLOT(trayIconActivated(QSystemTrayIcon::ActivationReason)));
     trayIcon->show();
+#else
+    // Note: On Mac, the dock icon is used to provide the tray's functionality.
+    MacDockIconHandler *dockIconHandler = MacDockIconHandler::instance();
+    trayIconMenu = dockIconHandler->dockMenu();
+    dockIconHandler->setMainWindow((QMainWindow *)this);
 #endif
 
-    notificator = new Notificator(QApplication::applicationName(), trayIcon);
+    // Configuration of the tray icon (or dock icon) icon menu
+    trayIconMenu->addAction(toggleHideAction);
+    trayIconMenu->addSeparator();
+    trayIconMenu->addAction(sendCoinsAction);
+    trayIconMenu->addAction(receiveCoinsAction);
+    trayIconMenu->addSeparator();
+    trayIconMenu->addAction(signMessageAction);
+    trayIconMenu->addAction(verifyMessageAction);
+    trayIconMenu->addSeparator();
+//    trayIconMenu->addAction(openConfigAction);
+    trayIconMenu->addAction(optionsAction);
+    trayIconMenu->addAction(openRPCConsoleAction);
+#ifndef Q_OS_MAC // This is built-in on Mac
+    trayIconMenu->addSeparator();
+    trayIconMenu->addAction(quitAction);
+#endif
+
+    notificator = new Notificator(qApp->applicationName(), trayIcon);
 }
 
+/*
 void BitcoinGUI::createTrayIconMenu()
 {
     QMenu *trayIconMenu;
@@ -421,6 +449,7 @@ void BitcoinGUI::createTrayIconMenu()
     trayIconMenu->addAction(quitAction);
 #endif
 }
+*/
 
 #ifndef Q_OS_MAC
 void BitcoinGUI::trayIconActivated(QSystemTrayIcon::ActivationReason reason)
